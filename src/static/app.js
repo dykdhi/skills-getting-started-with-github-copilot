@@ -12,6 +12,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // Clear loading message
       activitiesList.innerHTML = "";
+      activitySelect.innerHTML = '<option value="">-- Select an activity --</option>';
 
       // Populate activities list
       Object.entries(activities).forEach(([name, details]) => {
@@ -25,7 +26,36 @@ document.addEventListener("DOMContentLoaded", () => {
           <p>${details.description}</p>
           <p><strong>Schedule:</strong> ${details.schedule}</p>
           <p><strong>Availability:</strong> ${spotsLeft} spots left</p>
+          <div class="participants-section">
+            <p class="participants-title"><strong>Participants (${details.participants.length}):</strong></p>
+            <ul class="participants-list"></ul>
+          </div>
         `;
+
+        const participantsList = activityCard.querySelector(".participants-list");
+        details.participants.forEach((participantEmail) => {
+          const participantItem = document.createElement("li");
+          participantItem.className = "participant-item";
+
+          const participantEmailText = document.createElement("span");
+          participantEmailText.className = "participant-email";
+          participantEmailText.textContent = participantEmail;
+
+          const removeButton = document.createElement("button");
+          removeButton.type = "button";
+          removeButton.className = "remove-participant-btn";
+          removeButton.innerHTML = "&times;";
+          removeButton.setAttribute("aria-label", `Remove ${participantEmail} from ${name}`);
+          removeButton.title = "Unregister participant";
+
+          removeButton.addEventListener("click", async () => {
+            await unregisterParticipant(name, participantEmail);
+          });
+
+          participantItem.appendChild(participantEmailText);
+          participantItem.appendChild(removeButton);
+          participantsList.appendChild(participantItem);
+        });
 
         activitiesList.appendChild(activityCard);
 
@@ -38,6 +68,39 @@ document.addEventListener("DOMContentLoaded", () => {
     } catch (error) {
       activitiesList.innerHTML = "<p>Failed to load activities. Please try again later.</p>";
       console.error("Error fetching activities:", error);
+    }
+  }
+
+  async function unregisterParticipant(activityName, email) {
+    try {
+      const response = await fetch(
+        `/activities/${encodeURIComponent(activityName)}/signup?email=${encodeURIComponent(email)}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      const result = await response.json();
+
+      if (response.ok) {
+        messageDiv.textContent = result.message;
+        messageDiv.className = "info";
+        fetchActivities();
+      } else {
+        messageDiv.textContent = result.detail || "Failed to unregister participant";
+        messageDiv.className = "error";
+      }
+
+      messageDiv.classList.remove("hidden");
+
+      setTimeout(() => {
+        messageDiv.classList.add("hidden");
+      }, 5000);
+    } catch (error) {
+      messageDiv.textContent = "Failed to unregister participant. Please try again.";
+      messageDiv.className = "error";
+      messageDiv.classList.remove("hidden");
+      console.error("Error unregistering participant:", error);
     }
   }
 
@@ -62,6 +125,7 @@ document.addEventListener("DOMContentLoaded", () => {
         messageDiv.textContent = result.message;
         messageDiv.className = "success";
         signupForm.reset();
+        fetchActivities();
       } else {
         messageDiv.textContent = result.detail || "An error occurred";
         messageDiv.className = "error";
